@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.87.1",
+    "@supabase/supabase-js": "^2.113.0",
     "react": "19.2.3",
     "react-native": "0.87.1",
     "react-native-safe-area-context": "^5.5.2",
-    "react-native-thermal-receipt-printer-image-qr": "^0.1.12"
+    "react-native-thermal-receipt-printer-image-qr": "^0.1.12",
+    "react-native-url-polyfill": "^4.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
