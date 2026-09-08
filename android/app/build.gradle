@@ -78,12 +78,41 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.vioskv2.receiptprinter"
+
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
-        applicationId "com.vioskv2.receiptprinter"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+    }
+
+    /*
+     * One build per client. Each flavour is its own app on the phone —
+     * separate applicationId so a device can hold more than one, its own
+     * name and launcher icon, and the store code baked in so staff only
+     * type a PIN. Adding a client means adding a block here plus an icon
+     * folder; nothing in the JavaScript changes.
+     */
+    flavorDimensions "client"
+    productFlavors {
+        viosk {
+            dimension "client"
+            applicationId "com.vioskv2.receiptprinter"
+            resValue "string", "app_name", "Viosk"
+            buildConfigField "String", "CLIENT_NAME", '"Viosk"'
+            buildConfigField "String", "CLIENT_STORE_CODE", '""'
+        }
+        akanan {
+            dimension "client"
+            applicationId "com.vioskv2.receiptprinter.akanan"
+            resValue "string", "app_name", "AKANAN"
+            buildConfigField "String", "CLIENT_NAME", '"AKANAN"'
+            buildConfigField "String", "CLIENT_STORE_CODE", '"AKAN"'
+        }
     }
     signingConfigs {
         debug {

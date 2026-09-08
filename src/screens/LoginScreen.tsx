@@ -12,11 +12,12 @@ import {
 import {signInWithPin} from '../lib/api';
 import {theme} from '../lib/theme';
 import type {Session} from '../lib/types';
+import {clientBrand, isSingleClientBuild} from '../lib/client';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
 
 export default function LoginScreen({onSignedIn}: {onSignedIn: (s: Session) => void}) {
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(clientBrand.storeCode);
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,25 +46,38 @@ export default function LoginScreen({onSignedIn}: {onSignedIn: (s: Session) => v
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.head}>
-        <Text style={styles.brand}>Viosk</Text>
+        <Text style={styles.brand}>{clientBrand.clientName}</Text>
         <Text style={styles.sub}>Sign in to start your shift</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Store code</Text>
-        <TextInput
-          value={code}
-          onChangeText={t => {
-            setCode(t.toUpperCase());
-            setError(null);
-          }}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          placeholder="KATI"
-          placeholderTextColor={theme.ink3}
-          style={styles.input}
-          maxLength={12}
-        />
+        {isSingleClientBuild ? (
+          // This build belongs to one shop, so the code is not the user's
+          // to change — showing it beats an input they'd only mistype.
+          <>
+            <Text style={styles.label}>Store</Text>
+            <View style={styles.lockedCode}>
+              <Text style={styles.lockedCodeText}>{code}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Store code</Text>
+            <TextInput
+              value={code}
+              onChangeText={t => {
+                setCode(t.toUpperCase());
+                setError(null);
+              }}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholder="KATI"
+              placeholderTextColor={theme.ink3}
+              style={styles.input}
+              maxLength={12}
+            />
+          </>
+        )}
 
         <Text style={[styles.label, styles.pinLabel]}>PIN</Text>
         <View style={styles.dots}>
@@ -111,6 +125,8 @@ export default function LoginScreen({onSignedIn}: {onSignedIn: (s: Session) => v
 }
 
 const styles = StyleSheet.create({
+  lockedCode: {backgroundColor: theme.surface2, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14},
+  lockedCodeText: {fontSize: 18, fontWeight: '800', letterSpacing: 2, color: theme.ink},
   screen: {flex: 1, backgroundColor: theme.navy, justifyContent: 'center', padding: 22},
   head: {alignItems: 'center', marginBottom: 22},
   brand: {color: theme.lime, fontSize: 32, fontWeight: '800', letterSpacing: -0.8},
