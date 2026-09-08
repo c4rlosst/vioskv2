@@ -1,4 +1,5 @@
 import Logo from './Logo'
+import Monogram from './Monogram'
 
 export default function Header({
   businessName,
@@ -26,7 +27,7 @@ export default function Header({
         {logoUrl ? (
           <img src={logoUrl} alt="" className="header-logo-img" />
         ) : (
-          <Logo className="header-logo" />
+          <Monogram name={businessName} className="header-monogram" />
         )}
 
         <button className="basket" onClick={onCartClick} aria-label="Your order">

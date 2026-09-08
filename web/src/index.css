@@ -15,10 +15,18 @@
    ============================================================ */
 
 :root {
-  --navy: #16265E;
-  --navy-deep: #0E1A44;
-  --lime: #C9F23F;
-  --lime-ink: #1A2707;
+  /* A business overrides --brand and --accent from its `theme` row; every
+     other colour below is derived from them, so one change repaints the
+     whole page. Previously these were aliases pointing the other way,
+     which meant setting a brand colour changed nothing visible. */
+  --brand: #16265E;
+  --accent: #C9F23F;
+  --accent-ink: #1A2707;
+
+  --navy: var(--brand);
+  --navy-deep: color-mix(in srgb, var(--brand) 78%, #000);
+  --lime: var(--accent);
+  --lime-ink: var(--accent-ink);
 
   --paper: #F2F3F7;
   --surface: #FFFFFF;
@@ -28,10 +36,6 @@
   --ink-3: #9AA0B4;
   --rule: #E3E6EE;
   --danger: #B3261E;
-
-  /* aliases the theme system drives */
-  --brand: var(--navy);
-  --accent: var(--lime);
 
   --display: 'Poppins', 'Century Gothic', system-ui, sans-serif;
   --body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -92,6 +96,31 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 .header-logo { width: 30px; height: 23px; color: var(--lime); }
 .header-logo-img { height: 26px; width: auto; }
+
+/* Stand-in mark until a business uploads a real logo. */
+.monogram {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  flex: none;
+  user-select: none;
+}
+.monogram > span { transform: translateY(0.5px); }
+.monogram.big {
+  width: 62px;
+  height: 62px;
+  border-radius: 19px;
+  font-size: 32px;
+  align-self: center;
+}
 
 .icon-btn {
   position: relative;
@@ -505,7 +534,12 @@ ul { list-style: none; margin: 0; padding: 0; }
 /* Header gains a gradient and an oversized mark bleeding off the
    right edge — brand presence without another element to read. */
 .header {
-  background: linear-gradient(168deg, #1B2E70 0%, var(--navy) 46%, #101F52 100%);
+  background: linear-gradient(
+    168deg,
+    color-mix(in srgb, var(--brand) 88%, #fff) 0%,
+    var(--brand) 46%,
+    color-mix(in srgb, var(--brand) 82%, #000) 100%
+  );
   overflow: hidden;
 }
 

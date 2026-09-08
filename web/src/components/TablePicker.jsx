@@ -1,3 +1,5 @@
+import Monogram from './Monogram'
+
 export default function TablePicker({ businessName, logoUrl, storeName, tables, onPick }) {
   return (
     <div className="waiting">
@@ -5,7 +7,7 @@ export default function TablePicker({ businessName, logoUrl, storeName, tables, 
         {logoUrl ? (
           <img src={logoUrl} alt="" className="brand-logo big" />
         ) : (
-          <span className="material-symbols-outlined pick-mark">table_restaurant</span>
+          <Monogram name={businessName} className="big" />
         )}
 
         <h1>Where are you sitting?</h1>
