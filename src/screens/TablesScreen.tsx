@@ -19,6 +19,7 @@ type Props = {
   onOpenMenu: () => void;
   onOpenHistory: () => void;
   onOpenTableAdmin: () => void;
+  onOpenBranding: () => void;
   onOpenPrinter: () => void;
   onSignOut: () => void;
 };
@@ -29,6 +30,7 @@ export default function TablesScreen({
   onOpenMenu,
   onOpenHistory,
   onOpenTableAdmin,
+  onOpenBranding,
   onOpenPrinter,
   onSignOut,
 }: Props) {
@@ -93,6 +95,9 @@ export default function TablesScreen({
             </Pressable>
             <Pressable style={styles.headBtn} onPress={onOpenTableAdmin}>
               <Text style={styles.headBtnText}>Tables</Text>
+            </Pressable>
+            <Pressable style={styles.headBtn} onPress={onOpenBranding}>
+              <Text style={styles.headBtnText}>Brand</Text>
             </Pressable>
           </>
         )}

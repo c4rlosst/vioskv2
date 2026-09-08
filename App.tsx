@@ -6,6 +6,7 @@ import TableScreen from './src/screens/TableScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import TableAdminScreen from './src/screens/TableAdminScreen';
+import BrandingScreen from './src/screens/BrandingScreen';
 import PrinterScreen from './src/screens/PrinterScreen';
 import {signOut} from './src/lib/api';
 import {theme} from './src/lib/theme';
@@ -18,6 +19,7 @@ type Route =
   | {name: 'menu'}
   | {name: 'history'}
   | {name: 'tableAdmin'}
+  | {name: 'branding'}
   | {name: 'printer'};
 
 export default function App(): React.JSX.Element {
@@ -51,6 +53,14 @@ export default function App(): React.JSX.Element {
         <HistoryScreen session={session} onBack={() => setRoute({name: 'tables'})} />
       ) : route.name === 'tableAdmin' ? (
         <TableAdminScreen session={session} onBack={() => setRoute({name: 'tables'})} />
+      ) : route.name === 'branding' ? (
+        <BrandingScreen
+          session={session}
+          onBack={() => setRoute({name: 'tables'})}
+          onSaved={(businessName, storeName) =>
+            setSession(s => (s ? {...s, businessName, storeName} : s))
+          }
+        />
       ) : route.name === 'printer' ? (
         <PrinterScreen
           connected={printer}
@@ -64,6 +74,7 @@ export default function App(): React.JSX.Element {
           onOpenMenu={() => setRoute({name: 'menu'})}
           onOpenHistory={() => setRoute({name: 'history'})}
           onOpenTableAdmin={() => setRoute({name: 'tableAdmin'})}
+          onOpenBranding={() => setRoute({name: 'branding'})}
           onOpenPrinter={() => setRoute({name: 'printer'})}
           onSignOut={leave}
         />
