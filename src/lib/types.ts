@@ -37,6 +37,7 @@ export type Order = {
   submitted_at: string;
   verified_at: string | null;
   note: string | null;
+  guest_name: string | null;
   order_items: OrderItem[];
 };
 

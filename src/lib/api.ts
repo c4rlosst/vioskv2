@@ -124,7 +124,7 @@ export async function loadTables(storeId: string): Promise<TableCard[]> {
 export async function loadSessionOrders(sessionId: string): Promise<Order[]> {
   const {data} = await supabase
     .from('orders')
-    .select('id, session_id, source, status, submitted_at, verified_at, note, order_items(id, product_id, name_at_sale, price_at_sale, quantity)')
+    .select('id, session_id, source, status, submitted_at, verified_at, note, guest_name, order_items(id, product_id, name_at_sale, price_at_sale, quantity)')
     .eq('session_id', sessionId)
     .neq('status', 'voided')
     .order('submitted_at');
@@ -162,9 +162,36 @@ export async function addItemToOrder(orderId: string, product: Product, qty = 1)
   });
 }
 
+/** Several lines in one round trip, for the waiter's multi-pick basket. */
+export async function addItemsToOrder(
+  orderId: string,
+  lines: {product: Product; qty: number}[],
+) {
+  const rows = lines
+    .filter(l => l.qty > 0)
+    .map(l => ({
+      order_id: orderId,
+      product_id: l.product.id,
+      name_at_sale: l.product.name,
+      price_at_sale: l.product.price,
+      quantity: l.qty,
+    }));
+  if (rows.length === 0) return {error: null};
+  return supabase.from('order_items').insert(rows);
+}
+
 export async function setItemQuantity(itemId: string, qty: number) {
   if (qty <= 0) return supabase.from('order_items').delete().eq('id', itemId);
   return supabase.from('order_items').update({quantity: qty}).eq('id', itemId);
+}
+
+/** Who a round is for, so a table can keep their orders apart. */
+export async function setOrderName(orderId: string, name: string) {
+  const clean = name.trim().slice(0, 40);
+  return supabase
+    .from('orders')
+    .update({guest_name: clean.length > 0 ? clean : null})
+    .eq('id', orderId);
 }
 
 export async function verifyOrder(orderId: string, userId: string) {
@@ -385,4 +412,61 @@ export async function removeTable(
 
   const {error} = await supabase.from('store_tables').delete().eq('id', table.id);
   return {deleted: !error, error: error?.message};
+}
+
+/* ---------- manager: branding and names ---------- */
+
+export type Branding = {
+  businessName: string;
+  storeName: string;
+  logoUrl: string;
+  brand: string;
+  accent: string;
+  accentInk: string;
+};
+
+export async function loadBranding(session: Session): Promise<Branding> {
+  const [{data: business}, {data: store}] = await Promise.all([
+    supabase
+      .from('businesses')
+      .select('name, logo_url, theme')
+      .eq('id', session.businessId)
+      .single(),
+    supabase.from('stores').select('name').eq('id', session.storeId).single(),
+  ]);
+
+  const theme = (business?.theme ?? {}) as Record<string, string>;
+
+  return {
+    businessName: business?.name ?? '',
+    storeName: store?.name ?? '',
+    logoUrl: business?.logo_url ?? '',
+    brand: theme['--brand'] ?? '#16265E',
+    accent: theme['--accent'] ?? '#C9F23F',
+    accentInk: theme['--accent-ink'] ?? '#1A2707',
+  };
+}
+
+export async function saveBranding(session: Session, values: Branding) {
+  const {error: bizError} = await supabase
+    .from('businesses')
+    .update({
+      name: values.businessName.trim(),
+      logo_url: values.logoUrl.trim() || null,
+      theme: {
+        '--brand': values.brand,
+        '--accent': values.accent,
+        '--accent-ink': values.accentInk,
+      },
+    })
+    .eq('id', session.businessId);
+
+  if (bizError) return {error: bizError.message};
+
+  const {error: storeError} = await supabase
+    .from('stores')
+    .update({name: values.storeName.trim()})
+    .eq('id', session.storeId);
+
+  return {error: storeError?.message};
 }

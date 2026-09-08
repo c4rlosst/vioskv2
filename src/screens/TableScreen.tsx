@@ -12,8 +12,9 @@ import {
   View,
 } from 'react-native';
 import {
-  addItemToOrder,
+  addItemsToOrder,
   closeTable,
+  setOrderName,
   createStaffOrder,
   loadMenu,
   loadSessionOrders,
@@ -46,6 +47,15 @@ export default function TableScreen({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [picker, setPicker] = useState<string | null>(null); // orderId to add into
+  const [draft, setDraft] = useState<Record<string, number>>({}); // productId -> qty
+  const [freshOrder, setFreshOrder] = useState<string | null>(null); // void if abandoned
+  const [nameEdit, setNameEdit] = useState<{id: string; value: string} | null>(null);
+  const [qtyEdit, setQtyEdit] = useState<{
+    kind: 'draft' | 'line';
+    id: string;
+    name: string;
+    value: string;
+  } | null>(null);
   const [search, setSearch] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(table.sessionId);
 
@@ -90,12 +100,98 @@ export default function TableScreen({
     refresh();
   };
 
-  const addItem = async (product: Product) => {
-    if (!picker) return;
-    await addItemToOrder(picker, product);
+  /* ----- the basket inside the picker ----- */
+
+  const bump = (productId: string, delta: number) =>
+    setDraft(d => {
+      const next = (d[productId] ?? 0) + delta;
+      if (next <= 0) {
+        const rest = {...d};
+        delete rest[productId];
+        return rest;
+      }
+      return {...d, [productId]: next};
+    });
+
+  const setQty = (productId: string, qty: number) =>
+    setDraft(d => {
+      if (qty <= 0) {
+        const rest = {...d};
+        delete rest[productId];
+        return rest;
+      }
+      return {...d, [productId]: Math.min(qty, 999)};
+    });
+
+  const applyQtyEdit = async () => {
+    if (!qtyEdit) return;
+    const parsed = parseInt(qtyEdit.value.replace(/[^0-9]/g, ''), 10);
+    const next = Number.isFinite(parsed) ? Math.min(parsed, 999) : 0;
+    const edit = qtyEdit;
+    setQtyEdit(null);
+    if (edit.kind === 'draft') {
+      setQty(edit.id, next);
+    } else {
+      await changeQty(edit.id, next);
+    }
+  };
+
+  const draftLines = useMemo(
+    () =>
+      Object.entries(draft)
+        .map(([id, qty]) => ({product: products.find(p => p.id === id), qty}))
+        .filter((l): l is {product: Product; qty: number} => Boolean(l.product)),
+    [draft, products],
+  );
+
+  const draftCount = draftLines.reduce((n, l) => n + l.qty, 0);
+  const draftTotal = draftLines.reduce(
+    (sum, l) => sum + Number(l.product.price) * l.qty,
+    0,
+  );
+
+  const closePicker = async (opts?: {committed?: boolean}) => {
+    // A round the waiter started but then backed out of would otherwise sit
+    // on the table as an empty verified order, so drop it.
+    if (!opts?.committed && picker && picker === freshOrder) {
+      await voidOrder(picker);
+    }
+    setFreshOrder(null);
     setPicker(null);
+    setDraft({});
     setSearch('');
     refresh();
+  };
+
+  const commitDraft = async () => {
+    if (!picker || draftLines.length === 0) return;
+    setBusy(true);
+    await addItemsToOrder(picker, draftLines);
+    setBusy(false);
+    closePicker({committed: true});
+  };
+
+  const applyNameEdit = async () => {
+    if (!nameEdit) return;
+    const edit = nameEdit;
+    setNameEdit(null);
+    await setOrderName(edit.id, edit.value);
+    refresh();
+  };
+
+  /** Whose round this is. Tap to set, change or clear it. */
+  const nameChip = (order: Order) => {
+    const who = order.guest_name?.trim();
+    return (
+      <Pressable
+        hitSlop={6}
+        style={[styles.nameChip, who ? styles.nameChipOn : null]}
+        onPress={() => setNameEdit({id: order.id, value: who ?? ''})}>
+        <Text style={who ? styles.nameChipTextOn : styles.nameChipText}>
+          {who ? who : '+ name'}
+        </Text>
+      </Pressable>
+    );
   };
 
   const confirm = async (order: Order) => {
@@ -127,6 +223,7 @@ export default function TableScreen({
     try {
       const order = await createStaffOrder(session.storeId, table.tableId, session.userId);
       setSessionId(order.session_id);
+      setFreshOrder(order.id);
       setPicker(order.id);
       const fresh = await loadSessionOrders(order.session_id);
       setOrders(fresh);
@@ -230,6 +327,7 @@ export default function TableScreen({
               <Text style={styles.pendingTitle}>Sent from the table</Text>
               <Text style={styles.pendingSince}>{sinceLabel(order.submitted_at)}</Text>
             </View>
+            <View style={styles.nameRow}>{nameChip(order)}</View>
 
             {order.note ? <Text style={styles.note}>“{order.note}”</Text> : null}
 
@@ -244,7 +342,18 @@ export default function TableScreen({
                     onPress={() => changeQty(item.id, item.quantity - 1)}>
                     <Text style={styles.stepText}>−</Text>
                   </Pressable>
-                  <Text style={styles.qty}>{item.quantity}</Text>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() =>
+                      setQtyEdit({
+                        kind: 'line',
+                        id: item.id,
+                        name: item.name_at_sale,
+                        value: String(item.quantity),
+                      })
+                    }>
+                    <Text style={styles.qty}>{item.quantity}</Text>
+                  </Pressable>
                   <Pressable
                     style={styles.stepBtn}
                     onPress={() => changeQty(item.id, item.quantity + 1)}>
@@ -258,7 +367,7 @@ export default function TableScreen({
             ))}
 
             <Pressable style={styles.addRow} onPress={() => setPicker(order.id)}>
-              <Text style={styles.addRowText}>+ Add another item</Text>
+              <Text style={styles.addRowText}>+ Add items</Text>
             </Pressable>
 
             <View style={styles.pendingFoot}>
@@ -280,7 +389,12 @@ export default function TableScreen({
         {verified.map((order, index) => (
           <View key={order.id} style={styles.roundCard}>
             <View style={styles.roundHead}>
-              <Text style={styles.roundTitle}>Round {index + 1}</Text>
+              <View style={styles.roundTitleRow}>
+                <Text style={styles.roundTitle}>
+                  {order.guest_name?.trim() || `Round ${index + 1}`}
+                </Text>
+                {nameChip(order)}
+              </View>
               <Text style={styles.roundSource}>
                 {order.source === 'staff' ? 'taken by staff' : 'from the table'}
               </Text>
@@ -331,9 +445,9 @@ export default function TableScreen({
         <View style={styles.modalWrap}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>Add an item</Text>
-              <Pressable onPress={() => {setPicker(null); setSearch('');}}>
-                <Text style={styles.modalClose}>Done</Text>
+              <Text style={styles.modalTitle}>Add items</Text>
+              <Pressable onPress={() => closePicker()}>
+                <Text style={styles.modalClose}>Cancel</Text>
               </Pressable>
             </View>
 
@@ -348,20 +462,140 @@ export default function TableScreen({
             <FlatList
               data={visibleProducts}
               keyExtractor={p => p.id}
-              renderItem={({item}) => (
-                <Pressable style={styles.pick} onPress={() => addItem(item)}>
-                  <View style={{flex: 1}}>
-                    <Text style={styles.pickName}>{item.name}</Text>
-                    {item.description ? (
-                      <Text style={styles.pickDesc} numberOfLines={1}>
-                        {item.description}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.pickPrice}>{peso(item.price)}</Text>
-                </Pressable>
-              )}
+              extraData={draft}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({item}) => {
+                const qty = draft[item.id] ?? 0;
+                return (
+                  <Pressable
+                    style={[styles.pick, qty > 0 && styles.pickOn]}
+                    onPress={() => bump(item.id, 1)}>
+                    <View style={{flex: 1}}>
+                      <Text style={styles.pickName}>{item.name}</Text>
+                      {item.description ? (
+                        <Text style={styles.pickDesc} numberOfLines={1}>
+                          {item.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.pickPrice}>{peso(item.price)}</Text>
+                    {qty > 0 ? (
+                      <View style={styles.pickStepper}>
+                        <Pressable
+                          hitSlop={8}
+                          style={styles.stepBtn}
+                          onPress={() => bump(item.id, -1)}>
+                          <Text style={styles.stepText}>−</Text>
+                        </Pressable>
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() =>
+                            setQtyEdit({
+                              kind: 'draft',
+                              id: item.id,
+                              name: item.name,
+                              value: String(qty),
+                            })
+                          }>
+                          <Text style={styles.pickQty}>{qty}</Text>
+                        </Pressable>
+                        <Pressable
+                          hitSlop={8}
+                          style={styles.stepBtn}
+                          onPress={() => bump(item.id, 1)}>
+                          <Text style={styles.stepText}>+</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <View style={styles.pickAdd}>
+                        <Text style={styles.pickAddText}>+</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              }}
             />
+
+            <View style={styles.basket}>
+              <Text style={styles.basketCount}>
+                {draftCount === 0
+                  ? 'Tap items to build the round'
+                  : `${draftCount} item${draftCount === 1 ? '' : 's'} · ${peso(draftTotal)}`}
+              </Text>
+              <Pressable
+                style={[
+                  styles.basketBtn,
+                  (draftCount === 0 || busy) && styles.off,
+                ]}
+                disabled={draftCount === 0 || busy}
+                onPress={commitDraft}>
+                <Text style={styles.basketBtnText}>
+                  {busy ? 'Adding…' : 'Add to order'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* whose round is this */}
+      <Modal visible={Boolean(nameEdit)} transparent animationType="fade">
+        <View style={styles.qtyWrap}>
+          <View style={styles.qtyCard}>
+            <Text style={styles.qtyTitle}>Who is this round for?</Text>
+            <Text style={styles.qtyHint}>
+              Leave it empty to go back to “Round 1”, “Round 2”.
+            </Text>
+            <TextInput
+              value={nameEdit?.value ?? ''}
+              onChangeText={t =>
+                setNameEdit(n => (n ? {...n, value: t} : n))
+              }
+              placeholder="e.g. Sai, Kuya Jun, Table 4 left"
+              placeholderTextColor={theme.ink3}
+              autoFocus
+              maxLength={40}
+              onSubmitEditing={applyNameEdit}
+              style={styles.nameInput}
+            />
+            <View style={styles.qtyRow}>
+              <Pressable style={styles.qtyCancel} onPress={() => setNameEdit(null)}>
+                <Text style={styles.qtyCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.qtySet} onPress={applyNameEdit}>
+                <Text style={styles.qtySetText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* type a quantity instead of tapping + */}
+      <Modal visible={Boolean(qtyEdit)} transparent animationType="fade">
+        <View style={styles.qtyWrap}>
+          <View style={styles.qtyCard}>
+            <Text style={styles.qtyTitle}>{qtyEdit?.name}</Text>
+            <Text style={styles.qtyHint}>How many?</Text>
+            <TextInput
+              value={qtyEdit?.value ?? ''}
+              onChangeText={t =>
+                setQtyEdit(q => (q ? {...q, value: t.replace(/[^0-9]/g, '')} : q))
+              }
+              keyboardType="number-pad"
+              autoFocus
+              selectTextOnFocus
+              maxLength={3}
+              onSubmitEditing={applyQtyEdit}
+              style={styles.qtyInput}
+            />
+            <View style={styles.qtyRow}>
+              <Pressable style={styles.qtyCancel} onPress={() => setQtyEdit(null)}>
+                <Text style={styles.qtyCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.qtySet} onPress={applyQtyEdit}>
+                <Text style={styles.qtySetText}>Set</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -450,4 +684,33 @@ const styles = StyleSheet.create({
   pickName: {fontSize: 15, fontWeight: '700', color: theme.ink},
   pickDesc: {fontSize: 13, color: theme.ink2, marginTop: 2},
   pickPrice: {fontSize: 15, fontWeight: '700', color: theme.ink},
+  pickOn: {backgroundColor: theme.surface2},
+  pickAdd: {width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: theme.rule, alignItems: 'center', justifyContent: 'center'},
+  pickAddText: {fontSize: 19, fontWeight: '700', color: theme.navy, marginTop: -2},
+  pickStepper: {flexDirection: 'row', alignItems: 'center', backgroundColor: theme.lime, borderRadius: 999, paddingHorizontal: 2},
+  pickQty: {minWidth: 20, textAlign: 'center', fontWeight: '800', color: theme.limeInk},
+
+  basket: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.rule},
+  basketCount: {flex: 1, color: theme.ink2, fontSize: 14, fontWeight: '600'},
+  basketBtn: {backgroundColor: theme.lime, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center'},
+  basketBtnText: {color: theme.limeInk, fontWeight: '800', fontSize: 15},
+
+  nameRow: {flexDirection: 'row', marginTop: 8},
+  roundTitleRow: {flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1},
+  nameChip: {paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: theme.rule},
+  nameChipOn: {backgroundColor: theme.lime, borderColor: theme.lime},
+  nameChipText: {fontSize: 12, fontWeight: '700', color: theme.ink2},
+  nameChipTextOn: {fontSize: 12, fontWeight: '800', color: theme.limeInk},
+  nameInput: {marginTop: 14, backgroundColor: theme.surface2, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, fontWeight: '700', color: theme.ink},
+
+  qtyWrap: {flex: 1, backgroundColor: 'rgba(9,16,44,0.55)', alignItems: 'center', justifyContent: 'center', padding: 32},
+  qtyCard: {width: '100%', maxWidth: 320, backgroundColor: theme.surface, borderRadius: 20, padding: 20},
+  qtyTitle: {fontSize: 17, fontWeight: '800', color: theme.ink},
+  qtyHint: {fontSize: 13, color: theme.ink2, marginTop: 2},
+  qtyInput: {marginTop: 14, backgroundColor: theme.surface2, borderRadius: 14, paddingVertical: 14, fontSize: 26, fontWeight: '800', textAlign: 'center', color: theme.ink},
+  qtyRow: {flexDirection: 'row', gap: 10, marginTop: 16},
+  qtyCancel: {flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 1, borderColor: theme.rule, alignItems: 'center'},
+  qtyCancelText: {color: theme.ink, fontWeight: '700', fontSize: 15},
+  qtySet: {flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: theme.lime, alignItems: 'center'},
+  qtySetText: {color: theme.limeInk, fontWeight: '800', fontSize: 15},
 });

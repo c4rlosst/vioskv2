@@ -49,6 +49,21 @@ const ascii = (text: string) =>
     // eslint-disable-next-line no-control-regex
     .replace(/[^\x0A\x20-\x7E<>]/g, '');
 
+/**
+ * Hermes on Android ships without full ICU, so passing a locale to
+ * toLocaleTimeString can throw — and this runs on the print path, which is
+ * exactly where a throw is most expensive. Formatted by hand instead.
+ */
+const clock = (d: Date) => {
+  const h = d.getHours();
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${h12}:${mm} ${h < 12 ? 'am' : 'pm'}`;
+};
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const stamp = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()]}  ${clock(d)}`;
+
 export function buildBill(input: BillInput): string {
   const now = new Date();
   let out = '';
@@ -62,10 +77,8 @@ export function buildBill(input: BillInput): string {
 
   input.orders.forEach((order, index) => {
     const at = new Date(order.verified_at ?? order.submitted_at);
-    out += `Round ${index + 1}   ${at.toLocaleTimeString('en-PH', {
-      hour: 'numeric',
-      minute: '2-digit',
-    })}\n`;
+    const who = order.guest_name?.trim();
+    out += pad(who ? who : `Round ${index + 1}`, clock(at));
 
     order.order_items.forEach(item => {
       const money = amount(Number(item.price_at_sale) * item.quantity);
@@ -82,14 +95,7 @@ export function buildBill(input: BillInput): string {
   out += '</C>\n';
   out += line;
   out += centre('Salamat po!');
-  out += centre(
-    now.toLocaleString('en-PH', {
-      day: 'numeric',
-      month: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    }),
-  );
+  out += centre(stamp(now));
   out += '\n\n\n';
 
   return ascii(out);
