@@ -1,0 +1,39 @@
+name: Build Android APK
+
+# Builds a release APK in the cloud so it can be downloaded and installed
+# without needing a PC. Runs on every push to main, and can also be
+# triggered manually from the Actions tab (useful from a phone/tablet
+# browser: Actions -> Build Android APK -> Run workflow).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vioskv2-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
