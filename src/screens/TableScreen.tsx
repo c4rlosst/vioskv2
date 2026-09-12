@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
   addItemsToOrder,
   closeTable,
@@ -58,6 +59,7 @@ export default function TableScreen({
   } | null>(null);
   const [search, setSearch] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(table.sessionId);
+  const insets = useSafeAreaInsets();
 
   const refresh = useCallback(async () => {
     if (!sessionId) {
@@ -428,7 +430,7 @@ export default function TableScreen({
       </ScrollView>
 
       {verified.length > 0 && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, {paddingBottom: 12 + insets.bottom}]}>
           <Pressable style={[styles.print, busy && styles.off]} disabled={busy} onPress={doPrint}>
             <Text style={styles.printText}>
               {printer ? 'Print bill' : 'Connect printer'}
@@ -441,7 +443,11 @@ export default function TableScreen({
       )}
 
       {/* ---- item picker ---- */}
-      <Modal visible={Boolean(picker)} animationType="slide" transparent>
+      <Modal
+        visible={Boolean(picker)}
+        animationType="slide"
+        transparent
+        onRequestClose={() => closePicker()}>
         <View style={styles.modalWrap}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
@@ -516,7 +522,7 @@ export default function TableScreen({
               }}
             />
 
-            <View style={styles.basket}>
+            <View style={[styles.basket, {paddingBottom: 12 + insets.bottom}]}>
               <Text style={styles.basketCount}>
                 {draftCount === 0
                   ? 'Tap items to build the round'
@@ -539,7 +545,11 @@ export default function TableScreen({
       </Modal>
 
       {/* whose round is this */}
-      <Modal visible={Boolean(nameEdit)} transparent animationType="fade">
+      <Modal
+        visible={Boolean(nameEdit)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNameEdit(null)}>
         <View style={styles.qtyWrap}>
           <View style={styles.qtyCard}>
             <Text style={styles.qtyTitle}>Who is this round for?</Text>
@@ -571,7 +581,11 @@ export default function TableScreen({
       </Modal>
 
       {/* type a quantity instead of tapping + */}
-      <Modal visible={Boolean(qtyEdit)} transparent animationType="fade">
+      <Modal
+        visible={Boolean(qtyEdit)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQtyEdit(null)}>
         <View style={styles.qtyWrap}>
           <View style={styles.qtyCard}>
             <Text style={styles.qtyTitle}>{qtyEdit?.name}</Text>

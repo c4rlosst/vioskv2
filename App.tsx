@@ -1,5 +1,6 @@
-import React, {useState} from 'react';
-import {SafeAreaView, StatusBar, StyleSheet} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
+import {BackHandler, StatusBar, StyleSheet} from 'react-native';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import LoginScreen from './src/screens/LoginScreen';
 import TablesScreen from './src/screens/TablesScreen';
 import TableScreen from './src/screens/TableScreen';
@@ -33,7 +34,26 @@ export default function App(): React.JSX.Element {
     setRoute({name: 'tables'});
   };
 
+  const goHome = useCallback(() => setRoute({name: 'tables'}), []);
+
+  // Android hardware back: without this, RN has no idea our screens form a
+  // stack, so back either falls through to the OS (closing the app) or gets
+  // half-caught by whichever Modal happens to be open. Anywhere but the
+  // tables (home) screen, back should just go home; only from home do we
+  // let the default "exit the app" behaviour happen.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (session && route.name !== 'tables') {
+        goHome();
+        return true; // handled — don't exit the app
+      }
+      return false; // let Android do its default thing (usually exit)
+    });
+    return () => sub.remove();
+  }, [session, route.name, goHome]);
+
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" />
 
@@ -80,6 +100,7 @@ export default function App(): React.JSX.Element {
         />
       )}
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

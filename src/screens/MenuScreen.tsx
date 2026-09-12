@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {loadMenu, saveProduct, setProductAvailability} from '../lib/api';
 import {peso, theme} from '../lib/theme';
 import type {Category, Product, Session} from '../lib/types';
@@ -29,6 +30,7 @@ export default function MenuScreen({
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [saving, setSaving] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const refresh = useCallback(async () => {
     const menu = await loadMenu(session.businessId);
@@ -126,9 +128,13 @@ export default function MenuScreen({
         )}
       />
 
-      <Modal visible={Boolean(editing)} animationType="slide" transparent>
+      <Modal
+        visible={Boolean(editing)}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditing(null)}>
         <View style={styles.modalWrap}>
-          <View style={styles.modal}>
+          <View style={[styles.modal, {paddingBottom: 26 + insets.bottom}]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>
                 {editing?.id ? 'Edit item' : 'New item'}

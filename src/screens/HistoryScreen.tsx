@@ -208,7 +208,11 @@ export default function HistoryScreen({
         />
       )}
 
-      <Modal visible={Boolean(detail)} animationType="slide" transparent>
+      <Modal
+        visible={Boolean(detail)}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setDetail(null)}>
         <View style={styles.modalWrap}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
