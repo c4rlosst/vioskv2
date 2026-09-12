@@ -27,6 +27,9 @@ jobs:
       - name: Install JS dependencies
         run: npm ci
 
+      - name: Ensure gradlew is executable
+        run: chmod +x android/gradlew
+
       - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
