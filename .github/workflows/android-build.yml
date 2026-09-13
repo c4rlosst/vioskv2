@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '22'
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -34,9 +34,16 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Upload APK
+      - name: Upload Viosk APK
         uses: actions/upload-artifact@v4
         with:
-          name: vioskv2-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: viosk-release-apk
+          path: android/app/build/outputs/apk/viosk/release/app-viosk-release.apk
+          retention-days: 30
+
+      - name: Upload Akanan APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: akanan-release-apk
+          path: android/app/build/outputs/apk/akanan/release/app-akanan-release.apk
           retention-days: 30
