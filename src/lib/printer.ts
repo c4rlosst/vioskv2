@@ -115,10 +115,40 @@ export async function initPrinter() {
   }
 }
 
+const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+
 export async function listPrinters(): Promise<PrinterDevice[]> {
+  // Re-init defensively rather than relying on the one-time init at screen
+  // mount: if Bluetooth was off (or the native module wasn't ready yet) at
+  // that moment, every scan after it would silently run against a module
+  // that never actually initialised.
+  await initPrinter();
   return (await BLEPrinter.getDeviceList()) ?? [];
 }
 
 export async function connectPrinter(mac: string) {
-  await BLEPrinter.connectPrinter(mac);
+  if (!mac) {
+    throw new Error('This device did not report an address to connect to.');
+  }
+  await initPrinter();
+  // A connection object left open from a previous attempt (or a previous
+  // printer entirely) can make Android's BLE stack silently refuse the next
+  // connectGatt call, which is one of the reasons this only "sometimes"
+  // works. Always start from a clean slate.
+  try {
+    await BLEPrinter.closeConn();
+  } catch {
+    // nothing was connected — fine
+  }
+  await withTimeout(
+    BLEPrinter.connectPrinter(mac),
+    12000,
+    'Connection timed out. Make sure the printer is powered on and nearby.',
+  );
 }

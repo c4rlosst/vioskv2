@@ -23,6 +23,7 @@ export default function PrinterScreen({
 }) {
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [connectingMac, setConnectingMac] = useState<string | null>(null);
 
   useEffect(() => {
     initPrinter();
@@ -44,13 +45,21 @@ export default function PrinterScreen({
   };
 
   const connect = async (device: PrinterDevice) => {
+    const mac = device.inner_mac_address;
+    if (!mac) {
+      Alert.alert('Cannot connect', 'This device did not report an address.');
+      return;
+    }
+    if (connectingMac) return; // a connect attempt is already in flight
+    setConnectingMac(mac);
     try {
-      await connectPrinter(device.inner_mac_address ?? '');
+      await connectPrinter(mac);
       onConnected(device);
       Alert.alert('Connected', device.device_name ?? 'Printer ready.');
     } catch (err: any) {
       Alert.alert('Could not connect', err?.message ?? 'Try again.');
     }
+    setConnectingMac(null);
   };
 
   return (
@@ -88,12 +97,21 @@ export default function PrinterScreen({
               <Text style={styles.empty}>No printers found yet.</Text>
             )
           }
-          renderItem={({item}) => (
-            <Pressable style={styles.device} onPress={() => connect(item)}>
-              <Text style={styles.deviceName}>{item.device_name ?? 'Unknown device'}</Text>
-              <Text style={styles.deviceMac}>{item.inner_mac_address}</Text>
-            </Pressable>
-          )}
+          renderItem={({item}) => {
+            const isConnecting = connectingMac === item.inner_mac_address;
+            return (
+              <Pressable
+                style={[styles.device, isConnecting && styles.deviceBusy]}
+                disabled={Boolean(connectingMac)}
+                onPress={() => connect(item)}>
+                <View style={{flex: 1}}>
+                  <Text style={styles.deviceName}>{item.device_name ?? 'Unknown device'}</Text>
+                  <Text style={styles.deviceMac}>{item.inner_mac_address}</Text>
+                </View>
+                {isConnecting && <ActivityIndicator color={theme.navy} />}
+              </Pressable>
+            );
+          }}
         />
       </View>
     </View>
@@ -113,7 +131,8 @@ const styles = StyleSheet.create({
   scan: {backgroundColor: theme.navy, borderRadius: 999, paddingVertical: 15, alignItems: 'center', marginBottom: 16},
   scanText: {color: '#fff', fontWeight: '800', fontSize: 15},
   empty: {color: theme.ink2, textAlign: 'center', marginTop: 20},
-  device: {backgroundColor: theme.surface, borderRadius: 14, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: theme.rule},
+  device: {backgroundColor: theme.surface, borderRadius: 14, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: theme.rule, flexDirection: 'row', alignItems: 'center', gap: 10},
+  deviceBusy: {opacity: 0.7},
   deviceName: {fontSize: 16, fontWeight: '700', color: theme.ink},
   deviceMac: {fontSize: 12, color: theme.ink3, marginTop: 3},
 });
