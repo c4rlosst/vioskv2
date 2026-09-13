@@ -3,8 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -133,8 +136,10 @@ export default function MenuScreen({
         animationType="slide"
         transparent
         onRequestClose={() => setEditing(null)}>
-        <View style={styles.modalWrap}>
-          <View style={[styles.modal, {paddingBottom: 26 + insets.bottom}]}>
+        <KeyboardAvoidingView
+          style={styles.modalWrap}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modal, {paddingBottom: 26 + insets.bottom, maxHeight: '88%'}]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>
                 {editing?.id ? 'Edit item' : 'New item'}
@@ -144,6 +149,10 @@ export default function MenuScreen({
               </Pressable>
             </View>
 
+            <ScrollView
+              style={{flexShrink: 1}}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
             <Text style={styles.label}>Name</Text>
             <TextInput
               value={editing?.name ?? ''}
@@ -212,8 +221,9 @@ export default function MenuScreen({
                 {saving ? 'Saving…' : editing?.id ? 'Save changes' : 'Add to menu'}
               </Text>
             </Pressable>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
