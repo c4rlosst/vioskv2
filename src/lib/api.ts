@@ -306,22 +306,24 @@ export async function loadHistory(
     .gte('closed_at', sinceISO)
     .order('closed_at', {ascending: false});
 
-  return (data ?? []).map((s: any) => {
-    const charged = (s.orders ?? []).filter((o: any) => o.status === 'verified');
-    const lines = charged.flatMap((o: any) => o.order_items ?? []);
-    return {
-      sessionId: s.id,
-      tableLabel: s.store_tables?.label ?? '—',
-      openedAt: s.opened_at,
-      closedAt: s.closed_at,
-      rounds: charged.length,
-      items: lines.reduce((n: number, i: any) => n + i.quantity, 0),
-      total: lines.reduce(
-        (sum: number, i: any) => sum + Number(i.price_at_sale) * i.quantity,
-        0,
-      ),
-    };
-  });
+  return (data ?? [])
+    .map((s: any) => {
+      const charged = (s.orders ?? []).filter((o: any) => o.status === 'verified');
+      const lines = charged.flatMap((o: any) => o.order_items ?? []);
+      return {
+        sessionId: s.id,
+        tableLabel: s.store_tables?.label ?? '—',
+        openedAt: s.opened_at,
+        closedAt: s.closed_at,
+        rounds: charged.length,
+        items: lines.reduce((n: number, i: any) => n + i.quantity, 0),
+        total: lines.reduce(
+          (sum: number, i: any) => sum + Number(i.price_at_sale) * i.quantity,
+          0,
+        ),
+      };
+    })
+    .filter(row => row.rounds > 0);
 }
 
 /** Best sellers over the same window, by quantity sold. */

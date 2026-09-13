@@ -29,7 +29,7 @@ export default function LoginScreen({onSignedIn}: {onSignedIn: (s: Session) => v
   };
 
   const submit = async () => {
-    if (!code.trim() || pin.length < 4) return;
+    if (!code.trim() || pin.length !== 6) return;
     setBusy(true);
     setError(null);
     const {session, error: err} = await signInWithPin(code, pin);
@@ -109,9 +109,9 @@ export default function LoginScreen({onSignedIn}: {onSignedIn: (s: Session) => v
         <Pressable
           style={[
             styles.primary,
-            (busy || !code.trim() || pin.length < 4) && styles.primaryOff,
+            (busy || !code.trim() || pin.length !== 6) && styles.primaryOff,
           ]}
-          disabled={busy || !code.trim() || pin.length < 4}
+          disabled={busy || !code.trim() || pin.length !== 6}
           onPress={submit}>
           {busy ? (
             <ActivityIndicator color={theme.limeInk} />

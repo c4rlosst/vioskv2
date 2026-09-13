@@ -277,7 +277,9 @@ export default function TableScreen({
   const doClose = () =>
     Alert.alert(
       `Close ${table.label}?`,
-      `${peso(total)} — make sure payment has been taken.`,
+      total > 0
+        ? `${peso(total)} — make sure payment has been taken.`
+        : 'Nothing was charged on this table.',
       [
         {text: 'Not yet', style: 'cancel'},
         {
@@ -460,14 +462,16 @@ export default function TableScreen({
         </Pressable>
       </ScrollView>
 
-      {verified.length > 0 && (
+      {sessionId && (
         <View style={[styles.footer, {paddingBottom: 12 + insets.bottom}]}>
-          <Pressable style={[styles.print, busy && styles.off]} disabled={busy} onPress={doPrint}>
-            <Text style={styles.printText}>
-              {printer ? 'Print bill' : 'Connect printer'}
-            </Text>
-          </Pressable>
-          <Pressable style={styles.closeBtn} onPress={doClose}>
+          {verified.length > 0 && (
+            <Pressable style={[styles.print, busy && styles.off]} disabled={busy} onPress={doPrint}>
+              <Text style={styles.printText}>
+                {printer ? 'Print bill' : 'Connect printer'}
+              </Text>
+            </Pressable>
+          )}
+          <Pressable style={[styles.closeBtn, verified.length === 0 && styles.closeBtnWide]} onPress={doClose}>
             <Text style={styles.closeText}>Close table</Text>
           </Pressable>
         </View>
@@ -718,6 +722,7 @@ const styles = StyleSheet.create({
   print: {flex: 1, backgroundColor: theme.navy, borderRadius: 999, paddingVertical: 15, alignItems: 'center'},
   printText: {color: '#fff', fontWeight: '800', fontSize: 15},
   closeBtn: {paddingHorizontal: 20, paddingVertical: 15, borderRadius: 999, borderWidth: 1, borderColor: theme.rule},
+  closeBtnWide: {flex: 1, alignItems: 'center'},
   closeText: {color: theme.ink, fontWeight: '700'},
 
   modalWrap: {flex: 1, backgroundColor: 'rgba(9,16,44,0.5)', justifyContent: 'flex-end'},
