@@ -403,15 +403,46 @@ export default function TableScreen({
             </View>
             {order.order_items.map(item => (
               <View key={item.id} style={styles.line}>
-                <Text style={styles.roundQty}>{item.quantity}×</Text>
                 <Text style={styles.lineName} numberOfLines={1}>
                   {item.name_at_sale}
                 </Text>
+                <View style={styles.stepper}>
+                  <Pressable
+                    style={styles.stepBtn}
+                    onPress={() => changeQty(item.id, item.quantity - 1)}>
+                    <Text style={styles.stepText}>−</Text>
+                  </Pressable>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() =>
+                      setQtyEdit({
+                        kind: 'line',
+                        id: item.id,
+                        name: item.name_at_sale,
+                        value: String(item.quantity),
+                      })
+                    }>
+                    <Text style={styles.qty}>{item.quantity}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.stepBtn}
+                    onPress={() => changeQty(item.id, item.quantity + 1)}>
+                    <Text style={styles.stepText}>+</Text>
+                  </Pressable>
+                </View>
                 <Text style={styles.lineTotal}>
                   {peso(Number(item.price_at_sale) * item.quantity)}
                 </Text>
               </View>
             ))}
+
+            <Pressable style={styles.addRow} onPress={() => setPicker(order.id)}>
+              <Text style={styles.addRowText}>+ Add items</Text>
+            </Pressable>
+
+            <Pressable style={styles.roundVoid} onPress={() => discard(order)}>
+              <Text style={styles.voidText}>Void this round</Text>
+            </Pressable>
           </View>
         ))}
 
@@ -672,6 +703,7 @@ const styles = StyleSheet.create({
   off: {opacity: 0.5},
 
   roundCard: {backgroundColor: theme.surface, borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: theme.rule},
+  roundVoid: {alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: theme.rule},
   roundHead: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4},
   roundTitle: {fontWeight: '800', color: theme.ink, fontSize: 15},
   roundSource: {color: theme.ink3, fontSize: 12},
